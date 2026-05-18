@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Namma Santhe Ledger</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #FFF8F0; --card: #FFFFFF; --accent: #D85A30; --accent2: #1D9E75;
+    --accent3: #BA7517; --text: #2C2C2A; --muted: #888780; --border: rgba(0,0,0,0.1);
+    --danger: #E24B4A; --success: #1D9E75; --warn: #BA7517; --pad: 16px; --r: 14px; --r-sm: 8px;
+  }
+  body { background: var(--bg); font-family: 'Segoe UI', sans-serif; color: var(--text); min-height: 100vh; display: flex; justify-content: center; }
+  #app { width: 100%; max-width: 420px; min-height: 100vh; display: flex; flex-direction: column; position: relative; }
+
+  .topbar { background: var(--accent); color: white; padding: 14px var(--pad) 12px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  .topbar-title { font-size: 17px; font-weight: 600; }
+  .topbar-sub { font-size: 11px; opacity: 0.85; margin-top: 1px; }
+  .topbar-date { font-size: 12px; opacity: 0.9; text-align: right; }
+
+  .bottom-nav { position: sticky; bottom: 0; background: var(--card); border-top: 1px solid var(--border); display: flex; z-index: 50; }
+  .nav-btn { flex: 1; padding: 10px 4px 8px; border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; font-family: inherit; color: var(--muted); transition: color 0.15s; }
+  .nav-btn.active { color: var(--accent); }
+  .nav-btn svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+  .screen { display: none; flex: 1; overflow-y: auto; padding-bottom: 80px; }
+  .screen.active { display: block; }
+
+  .hero-card { margin: 16px var(--pad) 8px; background: linear-gradient(135deg, #D85A30 0%, #993C1D 100%); border-radius: var(--r); padding: 20px; color: white; }
+  .hero-label { font-size: 12px; opacity: 0.85; margin-bottom: 4px; }
+  .hero-amount { font-size: 36px; font-weight: 700; letter-spacing: -1px; }
+  .hero-sub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+  .hero-row { display: flex; gap: 10px; margin-top: 14px; }
+  .hero-mini { flex: 1; background: rgba(255,255,255,0.15); border-radius: 10px; padding: 10px 12px; }
+  .hero-mini-label { font-size: 10px; opacity: 0.8; }
+  .hero-mini-val { font-size: 18px; font-weight: 600; margin-top: 2px; }
+
+  .section-head { padding: 12px var(--pad) 6px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+
+  .customer-list { padding: 0 var(--pad); display: flex; flex-direction: column; gap: 8px; }
+  .cust-card { background: var(--card); border-radius: var(--r); padding: 12px 14px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); cursor: pointer; transition: transform 0.1s; }
+  .cust-card:active { transform: scale(0.98); }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0; }
+  .cust-name { font-size: 15px; font-weight: 500; }
+  .cust-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .cust-bal { margin-left: auto; text-align: right; }
+  .bal-amount { font-size: 15px; font-weight: 600; }
+  .bal-label { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .badge-due { color: var(--danger); }
+  .badge-clear { color: var(--success); }
+
+  .search-bar { margin: 8px var(--pad); background: var(--card); border: 1px solid var(--border); border-radius: 10px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; }
+  .search-bar input { border: none; background: none; flex: 1; font-size: 14px; outline: none; font-family: inherit; color: var(--text); }
+  .search-bar svg { width: 18px; height: 18px; stroke: var(--muted); fill: none; stroke-width: 2; flex-shrink: 0; }
+
+  .fab { position: fixed; bottom: 72px; right: calc(50% - 210px + 16px); width: 54px; height: 54px; border-radius: 50%; background: var(--accent); color: white; border: none; font-size: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(216,90,48,0.45); z-index: 40; transition: transform 0.15s; }
+  @media (max-width: 420px) { .fab { right: 16px; } }
+  .fab:active { transform: scale(0.93); }
+
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: flex-end; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--card); border-radius: 20px 20px 0 0; width: 100%; max-width: 420px; padding: 20px var(--pad) 32px; animation: slideUp 0.22s ease; }
+  @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+  .modal-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+  .step-indicator { display: flex; gap: 6px; margin-bottom: 18px; }
+  .step-dot { flex: 1; height: 3px; border-radius: 2px; background: var(--border); }
+  .step-dot.done { background: var(--accent); }
+
+  .cust-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .cust-opt { border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--card); display: flex; align-items: center; gap: 8px; transition: border-color 0.15s; font-family: inherit; font-size: 14px; }
+  .cust-opt.selected { border-color: var(--accent); background: #FFF0EA; }
+  .cust-opt-avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+
+  .amount-display { background: #FFF0EA; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 14px; }
+  .amount-display .amount-val { font-size: 40px; font-weight: 700; letter-spacing: -1px; color: var(--text); }
+  .amount-display .amount-label { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .key { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-size: 20px; font-weight: 500; cursor: pointer; text-align: center; font-family: inherit; transition: background 0.1s; }
+  .key:active { background: #F5F5F3; }
+  .key.key-del { font-size: 16px; color: var(--muted); }
+
+  .type-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .type-btn { flex: 1; padding: 10px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--card); cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 500; transition: all 0.15s; }
+  .type-btn.udari.active { border-color: var(--danger); background: #FFF0F0; color: var(--danger); }
+  .type-btn.payment.active { border-color: var(--success); background: #F0FBF6; color: var(--success); }
+
+  .confirm-btn { width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
+  .confirm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .summary-today { margin: 16px var(--pad) 8px; background: var(--card); border-radius: var(--r); padding: 16px; border: 1px solid var(--border); }
+  .sum-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .sum-row:last-child { border-bottom: none; }
+  .sum-key { font-size: 14px; color: var(--muted); }
+  .sum-val { font-size: 15px; font-weight: 600; }
+
+  .txn-list { padding: 0 var(--pad); display: flex; flex-direction: column; gap: 8px; }
+  .txn-item { background: var(--card); border-radius: var(--r-sm); padding: 12px 14px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); }
+  .txn-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .txn-name { font-size: 14px; font-weight: 500; }
+  .txn-time { font-size: 12px; color: var(--muted); }
+  .txn-amt { margin-left: auto; font-size: 15px; font-weight: 600; }
+
+  .detail-screen { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 90; flex-direction: column; max-width: 420px; margin: 0 auto; overflow-y: auto; }
+  .detail-screen.open { display: flex; }
+  .detail-header { background: var(--accent); color: white; padding: 14px var(--pad); display: flex; align-items: center; gap: 12px; position: sticky; top: 0; }
+  .back-btn { background: none; border: none; color: white; cursor: pointer; padding: 4px; }
+  .back-btn svg { width: 22px; height: 22px; stroke: white; fill: none; stroke-width: 2; }
+  .detail-content { flex: 1; padding: 16px var(--pad) 40px; }
+  .detail-balance-card { background: var(--card); border-radius: var(--r); padding: 20px; text-align: center; border: 1px solid var(--border); margin-bottom: 16px; }
+  .wa-btn { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid #25D366; background: white; color: #128C7E; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; }
+
+  .add-cust-form { background: var(--card); border-radius: var(--r); padding: 16px; margin: 0 var(--pad) 12px; border: 1px solid var(--border); }
+  .form-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; margin-bottom: 10px; outline: none; background: var(--bg); color: var(--text); }
+  .form-input:focus { border-color: var(--accent); }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #2C2C2A; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; font-weight: 500; z-index: 200; white-space: nowrap; animation: fadeIn 0.2s ease; }
+
+  /* WhatsApp Notification Screen */
+  .wa-screen-header { background: #075E54; color: white; padding: 14px var(--pad); display: flex; align-items: center; gap: 10px; }
+  .wa-screen-header svg { width: 28px; height: 28px; fill: white; flex-shrink: 0; }
+  .wa-banner { margin: 16px var(--pad) 8px; background: #E9FBF0; border: 1.5px solid #25D366; border-radius: var(--r); padding: 16px; display: flex; align-items: center; gap: 14px; }
+  .wa-banner-icon { font-size: 32px; flex-shrink: 0; }
+  .wa-banner-text { font-size: 13px; color: #1A7A4A; line-height: 1.5; }
+  .wa-banner-text strong { display: block; font-size: 15px; margin-bottom: 2px; color: #0F5C38; }
+  .send-all-btn { margin: 0 var(--pad) 4px; width: calc(100% - 32px); padding: 14px; background: #25D366; color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s; }
+  .send-all-btn:active { background: #1DA851; }
+  .send-all-btn:disabled { background: #A8D9B8; cursor: not-allowed; }
+  .wa-cust-card { background: var(--card); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border); }
+  .wa-cust-top { display: flex; align-items: center; gap: 10px; }
+  .wa-cust-info { flex: 1; }
+  .wa-msg-preview { background: #E9FBF0; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #1A5C38; line-height: 1.5; border-left: 3px solid #25D366; }
+  .wa-send-btn { width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s; }
+  .wa-send-btn:active { background: #1DA851; }
+  .wa-sent-badge { display: inline-flex; align-items: center; gap: 4px; background: #E9FBF0; color: #1A7A4A; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; border: 1px solid #25D366; }
+  .msg-editor { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; font-family: inherit; resize: none; outline: none; color: var(--text); background: var(--bg); min-height: 80px; line-height: 1.5; }
+  .msg-editor:focus { border-color: #25D366; }
+  .wa-tabs { display: flex; border-bottom: 2px solid var(--border); margin: 0 var(--pad) 12px; gap: 4px; }
+  .wa-tab { flex: 1; padding: 10px 4px; border: none; background: none; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+  .wa-tab.active { color: #075E54; border-bottom-color: #25D366; }
+  .wa-tab-content { display: none; }
+  .wa-tab-content.active { display: block; }
+  .sent-log-item { background: var(--card); border-radius: var(--r-sm); padding: 12px 14px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); }
+  .sent-log-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .sent-tick { color: #25D366; font-size: 16px; margin-left: auto; }
+  .wa-empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+  .wa-empty-icon { font-size: 40px; margin-bottom: 8px; }
+  .schedule-card { background: var(--card); border-radius: var(--r); padding: 16px; margin: 0 var(--pad) 8px; border: 1px solid var(--border); }
+  .schedule-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-label { font-size: 14px; }
+  .schedule-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .toggle { position: relative; width: 44px; height: 24px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: #ccc; border-radius: 24px; cursor: pointer; transition: background 0.2s; }
+  .toggle-slider:before { content:''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform 0.2s; }
+  .toggle input:checked + .toggle-slider { background: #25D366; }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">ನಮ್ಮ ಸಂತೆ Ledger</div>
+      <div class="topbar-sub">Namma Santhe — Udari Book</div>
+    </div>
+    <div class="topbar-date" id="today-date"></div>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div class="screen active" id="screen-home">
+    <div class="hero-card">
+      <div class="hero-label">Total Outstanding Dues</div>
+      <div class="hero-amount" id="hero-total">₹0</div>
+      <div class="hero-sub">Pending from all customers</div>
+      <div class="hero-row">
+        <div class="hero-mini">
+          <div class="hero-mini-label">Customers</div>
+          <div class="hero-mini-val" id="hero-count">0</div>
+        </div>
+        <div class="hero-mini">
+          <div class="hero-mini-label">Today's Udari</div>
+          <div class="hero-mini-val" id="hero-today">₹0</div>
+        </div>
+        <div class="hero-mini">
+          <div class="hero-mini-label">Received</div>
+          <div class="hero-mini-val" id="hero-received">₹0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="text" id="search-input" placeholder="Search customer name..." oninput="renderCustomers()" />
+    </div>
+
+    <div class="section-head">Customer Ledger</div>
+    <div class="customer-list" id="customer-list"></div>
+    <div style="height:16px"></div>
+  </div>
+
+  <!-- SUMMARY SCREEN -->
+  <div class="screen" id="screen-summary">
+    <div class="section-head" style="padding-top:16px">Today's Summary</div>
+    <div class="summary-today" id="daily-summary"></div>
+    <div class="section-head">All Transactions Today</div>
+    <div class="txn-list" id="txn-list"></div>
+  </div>
+
+  <!-- WHATSAPP NOTIFICATION SCREEN -->
+  <div class="screen" id="screen-whatsapp">
+    <div style="background:#075E54;color:white;padding:14px var(--pad) 12px;display:flex;align-items:center;gap:10px;margin-bottom:0;">
+      <svg viewBox="0 0 32 32" width="28" height="28" fill="white"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.47.661 4.785 1.816 6.775L2 30l7.438-1.793A13.942 13.942 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm0 25.5a11.44 11.44 0 01-5.83-1.597l-.418-.248-4.414 1.064 1.1-4.296-.273-.44A11.46 11.46 0 014.5 16C4.5 9.649 9.649 4.5 16 4.5S27.5 9.649 27.5 16 22.351 27.5 16 27.5zm6.29-8.61c-.345-.172-2.04-1.006-2.356-1.12-.316-.115-.546-.172-.776.172-.23.345-.891 1.12-1.092 1.35-.2.23-.4.258-.746.086-.345-.172-1.458-.537-2.777-1.712-1.027-.916-1.72-2.047-1.922-2.392-.2-.345-.021-.531.151-.703.155-.155.345-.402.517-.603.172-.2.23-.345.345-.575.115-.23.057-.43-.029-.603-.086-.172-.776-1.87-1.063-2.56-.28-.672-.564-.58-.776-.59l-.66-.012a1.27 1.27 0 00-.919.43c-.316.345-1.207 1.178-1.207 2.872 0 1.694 1.235 3.33 1.407 3.56.172.23 2.43 3.71 5.888 5.203.823.355 1.465.567 1.965.726.826.263 1.578.226 2.172.137.663-.1 2.04-.834 2.328-1.639.287-.805.287-1.495.2-1.64-.086-.143-.316-.23-.66-.4z"/></svg>
+      <div>
+        <div style="font-size:17px;font-weight:700">WhatsApp Notifications</div>
+        <div style="font-size:11px;opacity:0.85">Send payment reminders to customers</div>
+      </div>
+    </div>
+
+    <div class="wa-tabs" style="margin-top:12px">
+      <button class="wa-tab active" onclick="switchWaTab('remind')">📨 Remind</button>
+      <button class="wa-tab" onclick="switchWaTab('bulk')">📢 Bulk Send</button>
+      <button class="wa-tab" onclick="switchWaTab('log')">✅ Sent Log</button>
+      <button class="wa-tab" onclick="switchWaTab('settings')">⚙️ Settings</button>
+    </div>
+
+    <!-- TAB: REMIND -->
+    <div class="wa-tab-content active" id="wa-tab-remind">
+      <div style="padding:0 var(--pad);display:flex;flex-direction:column;gap:10px;padding-bottom:20px" id="wa-remind-list"></div>
+    </div>
+
+    <!-- TAB: BULK SEND -->
+    <div class="wa-tab-content" id="wa-tab-bulk">
+      <div class="wa-banner">
+        <div class="wa-banner-icon">📢</div>
+        <div class="wa-banner-text">
+          <strong>Send to All with Dues</strong>
+          Opens WhatsApp for each customer who has pending payment. Quick batch reminder!
+        </div>
+      </div>
+      <div style="padding:0 var(--pad);margin-bottom:12px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Customers with pending dues:</div>
+        <div id="bulk-preview-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+        <button class="send-all-btn" id="send-all-btn" onclick="sendToAll()">
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="white"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.47.661 4.785 1.816 6.775L2 30l7.438-1.793A13.942 13.942 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm6.29 18.89c-.345-.172-2.04-1.006-2.356-1.12-.316-.115-.546-.172-.776.172-.23.345-.891 1.12-1.092 1.35-.2.23-.4.258-.746.086-.345-.172-1.458-.537-2.777-1.712-1.027-.916-1.72-2.047-1.922-2.392-.2-.345-.021-.531.151-.703.155-.155.345-.402.517-.603.172-.2.23-.345.345-.575.115-.23.057-.43-.029-.603-.086-.172-.776-1.87-1.063-2.56-.28-.672-.564-.58-.776-.59l-.66-.012a1.27 1.27 0 00-.919.43c-.316.345-1.207 1.178-1.207 2.872 0 1.694 1.235 3.33 1.407 3.56.172.23 2.43 3.71 5.888 5.203.823.355 1.465.567 1.965.726.826.263 1.578.226 2.172.137.663-.1 2.04-.834 2.328-1.639.287-.805.287-1.495.2-1.64-.086-.143-.316-.23-.66-.4z"/></svg>
+          Send Reminder to All (<span id="due-count">0</span>)
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB: SENT LOG -->
+    <div class="wa-tab-content" id="wa-tab-log">
+      <div style="padding:0 var(--pad);display:flex;flex-direction:column;gap:8px" id="sent-log-list"></div>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div class="wa-tab-content" id="wa-tab-settings">
+      <div style="padding:0 var(--pad)">
+        <div class="section-head" style="padding-left:0;padding-top:4px">Default Message Template</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Use {name} and {amount} as placeholders</div>
+        <textarea class="msg-editor" id="msg-template" rows="5"></textarea>
+        <button class="confirm-btn" style="margin-top:10px;background:#25D366" onclick="saveTemplate()">Save Template</button>
+
+        <div class="section-head" style="padding-left:0;margin-top:16px">Auto Reminders</div>
+        <div class="schedule-card">
+          <div class="schedule-row">
+            <div><div class="schedule-label">Market Day Reminder</div><div class="schedule-sub">Remind customers on Santhe day</div></div>
+            <label class="toggle"><input type="checkbox" id="tog-santhe" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="schedule-row">
+            <div><div class="schedule-label">Weekly Follow-up</div><div class="schedule-sub">Every Sunday evening reminder</div></div>
+            <label class="toggle"><input type="checkbox" id="tog-weekly"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="schedule-row">
+            <div><div class="schedule-label">Large Due Alert</div><div class="schedule-sub">Alert when due exceeds ₹500</div></div>
+            <label class="toggle"><input type="checkbox" id="tog-large" checked><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+
+        <div class="section-head" style="padding-left:0">Message Language</div>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <button class="type-btn active" id="lang-kn" onclick="setLang('kn')" style="border-color:#25D366;background:#E9FBF0;color:#075E54">🇮🇳 Kannada</button>
+          <button class="type-btn" id="lang-en" onclick="setLang('en')">🇬🇧 English</button>
+          <button class="type-btn" id="lang-hi" onclick="setLang('hi')">हिन्दी</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD CUSTOMER SCREEN -->
+  <div class="screen" id="screen-addcust">
+    <div class="section-head" style="padding-top:16px">Add New Customer</div>
+    <div class="add-cust-form">
+      <input class="form-input" id="new-cust-name" placeholder="Customer Name (e.g. Lakshmi Bai)" />
+      <input class="form-input" id="new-cust-phone" placeholder="Mobile Number (10 digits)" maxlength="10" />
+      <button class="confirm-btn" onclick="addNewCustomer()">Add Customer</button>
+    </div>
+    <div class="section-head">All Customers (<!-- count -->)</div>
+    <div id="all-cust-list" style="padding:0 var(--pad);display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-home" onclick="switchScreen('home')">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </button>
+    <button class="nav-btn" id="nav-summary" onclick="switchScreen('summary')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="3"/></svg>
+      Summary
+    </button>
+    <button class="nav-btn" id="nav-whatsapp" onclick="switchScreen('whatsapp')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      WhatsApp
+    </button>
+    <button class="nav-btn" id="nav-addcust" onclick="switchScreen('addcust')">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+      Customers
+    </button>
+  </nav>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab-btn" onclick="openModal()">+</button>
+
+<!-- ADD TRANSACTION MODAL -->
+<div class="modal-backdrop" id="modal-backdrop" onclick="handleBackdropClick(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">Step 1: Choose Customer</div>
+    <div class="step-indicator">
+      <div class="step-dot done" id="step1-dot"></div>
+      <div class="step-dot" id="step2-dot"></div>
+    </div>
+    <div id="step1">
+      <div class="cust-grid" id="modal-cust-grid"></div>
+      <button class="confirm-btn" id="step1-next" onclick="goStep2()" disabled>Next →</button>
+    </div>
+    <div id="step2" style="display:none">
+      <div class="type-row">
+        <button class="type-btn udari active" id="type-udari" onclick="setType('udari')">📒 Udari (Credit)</button>
+        <button class="type-btn payment" id="type-payment" onclick="setType('payment')">✅ Payment</button>
+      </div>
+      <div class="amount-display">
+        <div class="amount-label" id="amount-for">Amount</div>
+        <div class="amount-val" id="amount-display">₹0</div>
+      </div>
+      <div class="keypad">
+        <button class="key" onclick="keyPress('1')">1</button>
+        <button class="key" onclick="keyPress('2')">2</button>
+        <button class="key" onclick="keyPress('3')">3</button>
+        <button class="key" onclick="keyPress('4')">4</button>
+        <button class="key" onclick="keyPress('5')">5</button>
+        <button class="key" onclick="keyPress('6')">6</button>
+        <button class="key" onclick="keyPress('7')">7</button>
+        <button class="key" onclick="keyPress('8')">8</button>
+        <button class="key" onclick="keyPress('9')">9</button>
+        <button class="key" style="font-size:18px" onclick="keyPress('00')">00</button>
+        <button class="key" onclick="keyPress('0')">0</button>
+        <button class="key key-del" onclick="keyDel()">⌫</button>
+      </div>
+      <button class="confirm-btn" id="confirm-txn" onclick="confirmTransaction()" disabled>Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOMER DETAIL PANEL -->
+<div class="detail-screen" id="detail-screen">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closeDetail()">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div>
+      <div style="font-size:17px;font-weight:600" id="detail-name"></div>
+      <div style="font-size:12px;opacity:0.85" id="detail-phone"></div>
+    </div>
+  </div>
+  <div class="detail-content">
+    <div class="detail-balance-card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Outstanding Balance</div>
+      <div style="font-size:42px;font-weight:700;letter-spacing:-1px" id="detail-bal"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px" id="detail-status"></div>
+    </div>
+    <button class="wa-btn" onclick="sendWhatsApp()">💬 Send WhatsApp Reminder</button>
+    <div class="section-head" style="padding-left:0">Transaction History</div>
+    <div id="detail-txns" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────
+const AVATARS = [
+  { bg:'#FAECE7', color:'#993C1D' },
+  { bg:'#E1F5EE', color:'#0F6E56' },
+  { bg:'#E6F1FB', color:'#185FA5' },
+  { bg:'#FAEEDA', color:'#854F0B' },
+  { bg:'#FBEAF0', color:'#993556' },
+  { bg:'#EAF3DE', color:'#3B6D11' },
+];
+
+// Load from localStorage or use defaults
+function loadData() {
+  try {
+    const c = localStorage.getItem('nsl_customers');
+    const t = localStorage.getItem('nsl_transactions');
+    if (c) customers = JSON.parse(c);
+    if (t) transactions = JSON.parse(t);
+  } catch(e) {}
+}
+
+function saveData() {
+  try {
+    localStorage.setItem('nsl_customers', JSON.stringify(customers));
+    localStorage.setItem('nsl_transactions', JSON.stringify(transactions));
+  } catch(e) {}
+}
+
+let customers = [
+  { id:1, name:'Lakshmi Bai',  phone:'9876543210', avatarIdx:0 },
+  { id:2, name:'Raju Gowda',   phone:'9845123456', avatarIdx:1 },
+  { id:3, name:'Suma Devi',    phone:'9731234567', avatarIdx:2 },
+  { id:4, name:'Venkat Rao',   phone:'9900112233', avatarIdx:3 },
+  { id:5, name:'Kavitha',      phone:'9123456780', avatarIdx:4 },
+];
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+let transactions = [
+  { id:1, custId:1, type:'udari',   amount:150, date:todayStr(), time:'09:15' },
+  { id:2, custId:2, type:'udari',   amount:320, date:todayStr(), time:'10:30' },
+  { id:3, custId:1, type:'payment', amount:100, date:todayStr(), time:'11:00' },
+  { id:4, custId:3, type:'udari',   amount:80,  date:todayStr(), time:'12:20' },
+  { id:5, custId:4, type:'udari',   amount:250, date:todayStr(), time:'13:05' },
+  { id:6, custId:5, type:'udari',   amount:120, date:todayStr(), time:'14:00' },
+  { id:7, custId:2, type:'payment', amount:200, date:todayStr(), time:'14:30' },
+];
+let nextId = 8;
+
+loadData();
+nextId = (transactions.length > 0 ? Math.max(...transactions.map(t=>t.id)) + 1 : 1);
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function balance(custId) {
+  return transactions.filter(t=>t.custId===custId)
+    .reduce((s,t)=> t.type==='udari' ? s+t.amount : s-t.amount, 0);
+}
+function todaySales() {
+  return transactions.filter(x=>x.date===todayStr()&&x.type==='udari').reduce((s,x)=>s+x.amount,0);
+}
+function todayReceived() {
+  return transactions.filter(x=>x.date===todayStr()&&x.type==='payment').reduce((s,x)=>s+x.amount,0);
+}
+function totalOutstanding() {
+  return customers.reduce((s,c)=>s+Math.max(0,balance(c.id)),0);
+}
+function initials(name) {
+  return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+}
+function fmt(n) { return '₹'+n.toLocaleString('en-IN'); }
+function nowTime() {
+  const now = new Date();
+  return String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+}
+
+// ── HOME ──────────────────────────────────────────────────────────
+function renderHome() {
+  document.getElementById('hero-total').textContent    = fmt(totalOutstanding());
+  document.getElementById('hero-count').textContent    = customers.length;
+  document.getElementById('hero-today').textContent    = fmt(todaySales());
+  document.getElementById('hero-received').textContent = fmt(todayReceived());
+  renderCustomers();
+}
+
+function renderCustomers() {
+  const q = (document.getElementById('search-input').value||'').toLowerCase();
+  const list = document.getElementById('customer-list');
+  const filtered = customers.filter(c=>c.name.toLowerCase().includes(q));
+  if(filtered.length===0){
+    list.innerHTML='<p style="text-align:center;color:var(--muted);padding:32px;font-size:14px">No customers found</p>';
+    return;
+  }
+  list.innerHTML = filtered.map(c=>{
+    const bal = balance(c.id);
+    const av = AVATARS[c.avatarIdx % AVATARS.length];
+    const lastTxn = transactions.filter(t=>t.custId===c.id).slice(-1)[0];
+    return `<div class="cust-card" onclick="openDetail(${c.id})">
+      <div class="avatar" style="background:${av.bg};color:${av.color}">${initials(c.name)}</div>
+      <div>
+        <div class="cust-name">${c.name}</div>
+        <div class="cust-meta">${lastTxn?'Last: '+fmt(lastTxn.amount)+' · '+lastTxn.time:'No transactions yet'}</div>
+      </div>
+      <div class="cust-bal">
+        <div class="bal-amount ${bal>0?'badge-due':'badge-clear'}">${fmt(Math.abs(bal))}</div>
+        <div class="bal-label">${bal>0?'Due':'Clear'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── SUMMARY ───────────────────────────────────────────────────────
+function renderSummary() {
+  const sales=todaySales(), recv=todayReceived(), net=Math.max(0,sales-recv);
+  document.getElementById('daily-summary').innerHTML=`
+    <div class="sum-row"><span class="sum-key">📒 Udari Given Today</span><span class="sum-val" style="color:var(--danger)">${fmt(sales)}</span></div>
+    <div class="sum-row"><span class="sum-key">✅ Received Today</span><span class="sum-val" style="color:var(--success)">${fmt(recv)}</span></div>
+    <div class="sum-row"><span class="sum-key">📊 Net Pending Today</span><span class="sum-val" style="color:var(--warn)">${fmt(net)}</span></div>
+    <div class="sum-row"><span class="sum-key">🧾 Total All-Time Dues</span><span class="sum-val">${fmt(totalOutstanding())}</span></div>
+  `;
+  const todayTxns = transactions.filter(t=>t.date===todayStr()).slice().reverse();
+  document.getElementById('txn-list').innerHTML = todayTxns.map(t=>{
+    const c=customers.find(x=>x.id===t.custId);
+    const isU=t.type==='udari';
+    return `<div class="txn-item">
+      <div class="txn-dot" style="background:${isU?'var(--danger)':'var(--success)'}"></div>
+      <div>
+        <div class="txn-name">${c?c.name:'Unknown'}</div>
+        <div class="txn-time">${isU?'Udari':'Payment'} · ${t.time}</div>
+      </div>
+      <div class="txn-amt" style="color:${isU?'var(--danger)':'var(--success)'}">${isU?'-':'+'}${fmt(t.amount)}</div>
+    </div>`;
+  }).join('') || '<p style="text-align:center;color:var(--muted);padding:32px;font-size:14px">No transactions today yet</p>';
+}
+
+// ── ADD CUSTOMER SCREEN ───────────────────────────────────────────
+function renderAllCustomers() {
+  const list = document.getElementById('all-cust-list');
+  list.innerHTML = customers.map(c=>{
+    const av=AVATARS[c.avatarIdx%AVATARS.length];
+    const bal=balance(c.id);
+    return `<div class="cust-card">
+      <div class="avatar" style="background:${av.bg};color:${av.color}">${initials(c.name)}</div>
+      <div><div class="cust-name">${c.name}</div><div class="cust-meta">📞 ${c.phone}</div></div>
+      <div class="cust-bal">
+        <div class="bal-amount ${bal>0?'badge-due':'badge-clear'}">${fmt(Math.abs(bal))}</div>
+        <div class="bal-label">${bal>0?'Due':'Clear'}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.querySelector('#screen-addcust .section-head:last-of-type').textContent = `All Customers (${customers.length})`;
+}
+
+function addNewCustomer() {
+  const nameEl  = document.getElementById('new-cust-name');
+  const phoneEl = document.getElementById('new-cust-phone');
+  const name  = nameEl.value.trim();
+  const phone = phoneEl.value.trim();
+  if(!name){ showToast('⚠️ Enter customer name'); return; }
+  if(phone.length!==10||isNaN(phone)){ showToast('⚠️ Enter valid 10-digit number'); return; }
+  const newId = customers.length>0 ? Math.max(...customers.map(c=>c.id))+1 : 1;
+  customers.push({ id:newId, name, phone, avatarIdx: newId % AVATARS.length });
+  saveData();
+  nameEl.value=''; phoneEl.value='';
+  showToast('✅ Customer added!');
+  renderAllCustomers();
+  renderHome();
+}
+
+// ── SCREEN SWITCHER ───────────────────────────────────────────────
+function switchScreen(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  document.getElementById('fab-btn').style.display = name==='home' ? 'flex' : 'none';
+  if(name==='summary')   renderSummary();
+  if(name==='home')      renderHome();
+  if(name==='addcust')   renderAllCustomers();
+  if(name==='whatsapp')  { renderWaRemind(); renderBulkPreview(); }
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────
+let selectedCust=null, enteredAmount='', txnType='udari';
+
+function openModal() {
+  selectedCust=null; enteredAmount=''; txnType='udari';
+  document.getElementById('step1').style.display='block';
+  document.getElementById('step2').style.display='none';
+  document.getElementById('modal-title').textContent='Step 1: Choose Customer';
+  document.getElementById('step1-dot').classList.add('done');
+  document.getElementById('step2-dot').classList.remove('done');
+  document.getElementById('step1-next').disabled=true;
+  document.getElementById('modal-backdrop').classList.add('open');
+  renderModalCusts();
+  updateAmountDisplay();
+}
+
+function renderModalCusts() {
+  document.getElementById('modal-cust-grid').innerHTML = customers.map(c=>{
+    const av=AVATARS[c.avatarIdx%AVATARS.length];
+    return `<button class="cust-opt" id="copt-${c.id}" onclick="selectCust(${c.id})">
+      <div class="cust-opt-avatar" style="background:${av.bg};color:${av.color}">${initials(c.name)}</div>
+      ${c.name.split(' ')[0]}
+    </button>`;
+  }).join('');
+}
+
+function selectCust(id) {
+  selectedCust=id;
+  document.querySelectorAll('.cust-opt').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('copt-'+id).classList.add('selected');
+  document.getElementById('step1-next').disabled=false;
+}
+
+function goStep2() {
+  if(!selectedCust) return;
+  const c=customers.find(x=>x.id===selectedCust);
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='block';
+  document.getElementById('modal-title').textContent='Step 2: Enter Amount';
+  document.getElementById('step2-dot').classList.add('done');
+  document.getElementById('amount-for').textContent='Amount for '+c.name;
+  enteredAmount='';
+  updateAmountDisplay();
+}
+
+function setType(t) {
+  txnType=t;
+  document.getElementById('type-udari').classList.toggle('active',t==='udari');
+  document.getElementById('type-payment').classList.toggle('active',t==='payment');
+}
+
+function keyPress(k) {
+  if(enteredAmount.length>=6) return;
+  enteredAmount+=k;
+  enteredAmount=enteredAmount.replace(/^0+/,'')||'0';
+  updateAmountDisplay();
+}
+
+function keyDel() {
+  enteredAmount=enteredAmount.slice(0,-1);
+  updateAmountDisplay();
+}
+
+function updateAmountDisplay() {
+  const val=parseInt(enteredAmount||'0');
+  document.getElementById('amount-display').textContent=fmt(val);
+  document.getElementById('confirm-txn').disabled=val<=0;
+}
+
+function confirmTransaction() {
+  const amt=parseInt(enteredAmount||'0');
+  if(amt<=0||!selectedCust) return;
+  transactions.push({ id:nextId++, custId:selectedCust, type:txnType, amount:amt, date:todayStr(), time:nowTime() });
+  saveData();
+  closeModal();
+  renderHome();
+  showToast(txnType==='udari'?'📒 Udari added!':'✅ Payment recorded!');
+}
+
+function closeModal() { document.getElementById('modal-backdrop').classList.remove('open'); }
+function handleBackdropClick(e) { if(e.target===document.getElementById('modal-backdrop')) closeModal(); }
+
+// ── CUSTOMER DETAIL ───────────────────────────────────────────────
+let currentDetailId=null;
+
+function openDetail(id) {
+  currentDetailId=id;
+  const c=customers.find(x=>x.id===id);
+  const bal=balance(id);
+  document.getElementById('detail-name').textContent=c.name;
+  document.getElementById('detail-phone').textContent='📞 +91 '+c.phone;
+  document.getElementById('detail-bal').textContent=fmt(Math.abs(bal));
+  document.getElementById('detail-bal').style.color=bal>0?'var(--danger)':'var(--success)';
+  document.getElementById('detail-status').textContent=bal>0?'Amount due — please collect':'All dues cleared ✓';
+  const txns=transactions.filter(t=>t.custId===id).slice().reverse();
+  document.getElementById('detail-txns').innerHTML=txns.map(t=>{
+    const isU=t.type==='udari';
+    return `<div class="txn-item">
+      <div class="txn-dot" style="background:${isU?'var(--danger)':'var(--success)'}"></div>
+      <div><div class="txn-name">${isU?'Udari Given':'Payment Received'}</div><div class="txn-time">${t.date} · ${t.time}</div></div>
+      <div class="txn-amt" style="color:${isU?'var(--danger)':'var(--success)'}">${isU?'-':'+'}${fmt(t.amount)}</div>
+    </div>`;
+  }).join('')||'<p style="color:var(--muted);font-size:14px;text-align:center;padding:24px">No transactions yet</p>';
+  document.getElementById('detail-screen').classList.add('open');
+  document.getElementById('fab-btn').style.display='none';
+}
+
+function closeDetail() {
+  document.getElementById('detail-screen').classList.remove('open');
+  document.getElementById('fab-btn').style.display='flex';
+}
+
+function sendWhatsApp() {
+  const c=customers.find(x=>x.id===currentDetailId);
+  const bal=balance(currentDetailId);
+  if(bal<=0){ showToast('No dues for this customer!'); return; }
+  const msg=encodeURIComponent(`Namaskara ${c.name} avare 🙏\n\nNamma Santhe Ledger prakaara, nimma outstanding udari:\n*${fmt(bal)}*\n\nDayavittu payment maadi.\nDhanyavaadagalu! 🪔`);
+  window.open('https://wa.me/91'+c.phone+'?text='+msg,'_blank');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg) {
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t=document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2200);
+}
+
+// ── WHATSAPP NOTIFICATION SYSTEM ─────────────────────────────────
+let sentLog = [];
+let msgLang = 'kn';
+
+const TEMPLATES = {
+  kn: `Namaskara {name} avare 🙏\n\nNamma Santhe Ledger prakaara, nimma outstanding udari:\n*{amount}*\n\nDayavittu payment maadi.\nDhanyavaadagalu! 🪔`,
+  en: `Hello {name} 🙏\n\nAs per Namma Santhe Ledger, your outstanding due is:\n*{amount}*\n\nKindly make the payment at the earliest.\nThank you! 🪔`,
+  hi: `Namaste {name} ji 🙏\n\nNamma Santhe Ledger ke anusar, aapka outstanding udhari:\n*{amount}*\n\nKripya jald se jald payment karein.\nDhanyawaad! 🪔`
+};
+
+function getTemplate() {
+  const saved = localStorage.getItem('nsl_template');
+  return saved || TEMPLATES[msgLang];
+}
+
+function buildMsg(custId) {
+  const c = customers.find(x=>x.id===custId);
+  const bal = balance(custId);
+  return getTemplate().replace('{name}', c.name).replace('{amount}', fmt(bal));
+}
+
+function renderWaRemind() {
+  const dueCustomers = customers.filter(c => balance(c.id) > 0);
+  const list = document.getElementById('wa-remind-list');
+  if(dueCustomers.length === 0) {
+    list.innerHTML = `<div class="wa-empty"><div class="wa-empty-icon">🎉</div><div>No pending dues! All customers are clear.</div></div>`;
+    return;
+  }
+  list.innerHTML = dueCustomers.map(c => {
+    const bal = balance(c.id);
+    const av = AVATARS[c.avatarIdx % AVATARS.length];
+    const msg = buildMsg(c.id);
+    const alreadySent = sentLog.find(s=>s.custId===c.id&&s.date===todayStr());
+    return `<div class="wa-cust-card">
+      <div class="wa-cust-top">
+        <div class="avatar" style="background:${av.bg};color:${av.color};width:38px;height:38px;font-size:13px">${initials(c.name)}</div>
+        <div class="wa-cust-info">
+          <div style="font-size:14px;font-weight:600">${c.name}</div>
+          <div style="font-size:12px;color:var(--muted)">📞 ${c.phone}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:15px;font-weight:700;color:var(--danger)">${fmt(bal)}</div>
+          ${alreadySent ? '<div class="wa-sent-badge">✓ Sent today</div>' : '<div style="font-size:11px;color:var(--muted)">Due</div>'}
+        </div>
+      </div>
+      <div class="wa-msg-preview" id="msg-${c.id}">${msg.replace(/\n/g,'<br>')}</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="editMsg(${c.id})" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit">✏️ Edit</button>
+        <button class="wa-send-btn" style="flex:2" onclick="sendReminder(${c.id})">
+          <svg width="16" height="16" viewBox="0 0 32 32" fill="white"><path d="M16 2C8.268 2 2 8.268 2 16c0 2.47.661 4.785 1.816 6.775L2 30l7.438-1.793A13.942 13.942 0 0016 30c7.732 0 14-6.268 14-14S23.732 2 16 2zm6.29 18.89c-.345-.172-2.04-1.006-2.356-1.12-.316-.115-.546-.172-.776.172-.23.345-.891 1.12-1.092 1.35-.2.23-.4.258-.746.086-.345-.172-1.458-.537-2.777-1.712-1.027-.916-1.72-2.047-1.922-2.392-.2-.345-.021-.531.151-.703.155-.155.345-.402.517-.603.172-.2.23-.345.345-.575.115-.23.057-.43-.029-.603-.086-.172-.776-1.87-1.063-2.56-.28-.672-.564-.58-.776-.59l-.66-.012a1.27 1.27 0 00-.919.43c-.316.345-1.207 1.178-1.207 2.872 0 1.694 1.235 3.33 1.407 3.56.172.23 2.43 3.71 5.888 5.203.823.355 1.465.567 1.965.726.826.263 1.578.226 2.172.137.663-.1 2.04-.834 2.328-1.639.287-.805.287-1.495.2-1.64-.086-.143-.316-.23-.66-.4z"/></svg>
+          Send on WhatsApp
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function editMsg(custId) {
+  const c = customers.find(x=>x.id===custId);
+  const bal = balance(custId);
+  const current = buildMsg(custId);
+  const preview = document.getElementById('msg-'+custId);
+  preview.innerHTML = `<textarea class="msg-editor" id="edit-${custId}" style="width:100%;min-height:90px">${current}</textarea>
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <button onclick="cancelEdit(${custId})" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:6px;background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit">Cancel</button>
+      <button onclick="applyEdit(${custId})" style="flex:1;padding:6px;border:none;border-radius:6px;background:#25D366;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Save</button>
+    </div>`;
+}
+
+let customMsgs = {};
+function applyEdit(custId) {
+  const val = document.getElementById('edit-'+custId).value;
+  customMsgs[custId] = val;
+  renderWaRemind();
+}
+function cancelEdit(custId) { renderWaRemind(); }
+
+function sendReminder(custId) {
+  const c = customers.find(x=>x.id===custId);
+  const bal = balance(custId);
+  if(bal<=0){ showToast('No dues for '+c.name+'!'); return; }
+  const msg = customMsgs[custId] || buildMsg(custId);
+  window.open('https://wa.me/91'+c.phone+'?text='+encodeURIComponent(msg),'_blank');
+  logSent(custId, msg);
+  renderWaRemind();
+  renderSentLog();
+  showToast('💬 WhatsApp opened for '+c.name.split(' ')[0]+'!');
+}
+
+function logSent(custId, msg) {
+  sentLog.unshift({ custId, msg, date: todayStr(), time: nowTime() });
+  if(sentLog.length > 50) sentLog = sentLog.slice(0,50);
+  localStorage.setItem('nsl_sentlog', JSON.stringify(sentLog));
+}
+
+function sendToAll() {
+  const due = customers.filter(c=>balance(c.id)>0);
+  if(due.length===0){ showToast('No customers with dues!'); return; }
+  let i = 0;
+  function sendNext() {
+    if(i >= due.length) { showToast('✅ All '+due.length+' reminders sent!'); renderWaRemind(); renderSentLog(); return; }
+    const c = due[i];
+    const msg = buildMsg(c.id);
+    window.open('https://wa.me/91'+c.phone+'?text='+encodeURIComponent(msg),'_blank');
+    logSent(c.id, msg);
+    i++;
+    setTimeout(sendNext, 800);
+  }
+  sendNext();
+}
+
+function renderBulkPreview() {
+  const due = customers.filter(c=>balance(c.id)>0);
+  document.getElementById('due-count').textContent = due.length;
+  document.getElementById('send-all-btn').disabled = due.length===0;
+  document.getElementById('bulk-preview-list').innerHTML = due.map(c=>{
+    const av=AVATARS[c.avatarIdx%AVATARS.length];
+    return `<div style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+      <div class="avatar" style="background:${av.bg};color:${av.color};width:32px;height:32px;font-size:11px">${initials(c.name)}</div>
+      <div style="font-size:13px;font-weight:500;flex:1">${c.name}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--danger)">${fmt(balance(c.id))}</div>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px 0">No customers with dues 🎉</div>';
+}
+
+function renderSentLog() {
+  const logEl = document.getElementById('sent-log-list');
+  if(sentLog.length===0){
+    logEl.innerHTML='<div class="wa-empty"><div class="wa-empty-icon">📭</div><div>No reminders sent yet</div></div>';
+    return;
+  }
+  logEl.innerHTML = sentLog.map(s=>{
+    const c=customers.find(x=>x.id===s.custId);
+    if(!c) return '';
+    const av=AVATARS[c.avatarIdx%AVATARS.length];
+    return `<div class="sent-log-item">
+      <div class="sent-log-avatar" style="background:${av.bg};color:${av.color}">${initials(c.name)}</div>
+      <div>
+        <div style="font-size:14px;font-weight:500">${c.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${s.date} · ${s.time} · ${c.phone}</div>
+      </div>
+      <div class="sent-tick">✓✓</div>
+    </div>`;
+  }).join('');
+}
+
+function switchWaTab(tab) {
+  document.querySelectorAll('.wa-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.wa-tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.wa-tab[onclick="switchWaTab('${tab}')"]`).classList.add('active');
+  document.getElementById('wa-tab-'+tab).classList.add('active');
+  if(tab==='remind') renderWaRemind();
+  if(tab==='bulk')   renderBulkPreview();
+  if(tab==='log')    renderSentLog();
+  if(tab==='settings') { document.getElementById('msg-template').value = getTemplate(); }
+}
+
+function saveTemplate() {
+  localStorage.setItem('nsl_template', document.getElementById('msg-template').value);
+  showToast('✅ Template saved!');
+}
+
+function setLang(lang) {
+  msgLang = lang;
+  document.querySelectorAll('#wa-tab-settings .type-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('lang-'+lang).classList.add('active');
+  document.getElementById('msg-template').value = TEMPLATES[lang];
+  localStorage.setItem('nsl_lang', lang);
+}
+
+// Load sent log & lang
+try { const sl=localStorage.getItem('nsl_sentlog'); if(sl) sentLog=JSON.parse(sl); } catch(e){}
+try { const lg=localStorage.getItem('nsl_lang'); if(lg){ msgLang=lg; } } catch(e){}
+
+// ── INIT ──────────────────────────────────────────────────────────
+const now=new Date();
+document.getElementById('today-date').innerHTML=
+  now.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})+'<br>Santhe Day';
+
+renderHome();
+</script>
+</body>
+</html>
